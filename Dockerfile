@@ -10,21 +10,23 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Set Apache DocumentRoot to Laravel public directory
-ENV APACHE_DOCUMENT_ROOT=/var/www/html/backend/public
+ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
 RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf \
     && sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf
 
-# Copy project files into container
+# Copy all project files into container
 COPY . /var/www/html
 
-WORKDIR /var/www/html/backend
+# Set working directory
+WORKDIR /var/www/html
 
-# Set correct permissions
-RUN chmod -R 775 storage bootstrap/cache || true && \
-    touch database/database.sqlite && chmod 664 database/database.sqlite || true
+# Set permissions & ensure SQLite file exists
+RUN chmod -R 775 storage bootstrap/cache \
+    && touch database/database.sqlite \
+    && chmod 664 database/database.sqlite
 
-# Expose port 80 (Render auto-detects)
+# Expose Apache port
 EXPOSE 80
 
-# Start Apache (default command)
+# Start Apache
 CMD ["apache2-foreground"]
