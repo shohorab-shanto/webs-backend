@@ -1,3 +1,6 @@
+# ----------------------------
+# 🐘 Laravel PHP 8.2 + Apache
+# ----------------------------
 FROM php:8.2-apache
 
 # Install system dependencies and PHP extensions
@@ -10,30 +13,37 @@ RUN apt-get update && apt-get install -y \
     && a2enmod rewrite \
     && rm -rf /var/lib/apt/lists/*
 
-# Set Apache DocumentRoot to Laravel public directory
+# Set Apache DocumentRoot to Laravel's public directory
 ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
 RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf \
     && sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf
 
-# Copy all project files into container
+# Copy project files into container
 COPY . /var/www/html
 
 # Set working directory
 WORKDIR /var/www/html
 
-# Install Composer
-RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+# ✅ Install Composer from the official image (faster + stable)
+COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
 
-# Install PHP dependencies
-RUN composer install --optimize-autoloader --no-dev
+# Install PHP dependencies for Laravel
+RUN composer install --no-dev --optimize-autoloader \
+    && chown -R www-data:www-data /var/www/html/vendor
 
-# Set permissions & ensure SQLite file exists
-RUN chmod -R 775 storage bootstrap/cache \
+# Ensure writable directories and SQLite file exist
+RUN mkdir -p database \
     && touch database/database.sqlite \
+    && chown -R www-data:www-data storage bootstrap/cache database vendor \
+    && chmod -R 775 storage bootstrap/cache \
     && chmod 664 database/database.sqlite
 
-# Expose Apache port
+# Copy and enable custom startup script
+COPY docker-start.sh /usr/local/bin/docker-start.sh
+RUN chmod +x /usr/local/bin/docker-start.sh
+
+# Expose Apache HTTP port
 EXPOSE 80
 
-# Start Apache
-CMD ["apache2-foreground"]
+# Run startup script (artisan setup + Apache)
+CMD ["docker-start.sh"]
