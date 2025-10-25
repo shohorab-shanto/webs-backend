@@ -5,6 +5,7 @@ RUN apt-get update && apt-get install -y \
     libsqlite3-dev \
     unzip \
     git \
+    curl \
     && docker-php-ext-install pdo_sqlite \
     && a2enmod rewrite \
     && rm -rf /var/lib/apt/lists/*
@@ -19,6 +20,12 @@ COPY . /var/www/html
 
 # Set working directory
 WORKDIR /var/www/html
+
+# Install Composer
+RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+
+# Install PHP dependencies
+RUN composer install --optimize-autoloader --no-dev
 
 # Set permissions & ensure SQLite file exists
 RUN chmod -R 775 storage bootstrap/cache \
