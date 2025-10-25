@@ -30,7 +30,8 @@ if ! grep -q "APP_KEY=base64" .env; then
   php artisan key:generate
 fi
 
-# Run migrations (SQLite safe)
+# Prepare session table and run migrations (SQLite safe)
+php artisan session:table || true
 php artisan migrate --force || true
 
 # Cache configs
@@ -38,6 +39,11 @@ php artisan config:clear
 php artisan config:cache
 php artisan route:cache
 php artisan view:cache
+
+# Adjust Apache to Render's assigned PORT
+PORT=${PORT:-80}
+sed -i "s/^Listen .*/Listen ${PORT}/" /etc/apache2/ports.conf
+sed -i "s/:80>/:${PORT}>/" /etc/apache2/sites-available/000-default.conf
 
 echo "✅ Laravel ready. Starting Apache..."
 exec apache2-foreground
