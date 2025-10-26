@@ -27,23 +27,32 @@ sed -i "s|DB_DATABASE=.*|DB_DATABASE=/var/www/html/database/database.sqlite|" .e
 
 # Generate app key if missing
 if ! grep -q "APP_KEY=base64" .env; then
-  php artisan key:generate
+  php artisan key:generate || true
 fi
 
 # Prepare session table and run migrations (SQLite safe)
 php artisan session:table || true
 php artisan migrate --force || true
 
-# Cache configs
-php artisan config:clear
-php artisan config:cache
-php artisan route:cache
-php artisan view:cache
+# Create storage symlink if needed
+php artisan storage:link || true
+
+# Cache configs (non-fatal for Render)
+php artisan config:clear || true
+php artisan config:cache || true
+
+# Optionally skip route/view cache if DISABLE_ROUTE_CACHE=1
+if [ "${DISABLE_ROUTE_CACHE}" != "1" ]; then
+  php artisan route:cache || true
+  php artisan view:cache || true
+else
+  echo "⚠️ Skipping route/view cache due to DISABLE_ROUTE_CACHE=1"
+fi
 
 # Adjust Apache to Render's assigned PORT
 PORT=${PORT:-80}
 sed -i "s/^Listen .*/Listen ${PORT}/" /etc/apache2/ports.conf
 sed -i "s/:80>/:${PORT}>/" /etc/apache2/sites-available/000-default.conf
 
-echo "✅ Laravel ready. Starting Apache..."
+echo "✅ Laravel ready. Starting Apache on port ${PORT}..."
 exec apache2-foreground
